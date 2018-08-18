@@ -7,4 +7,5 @@
     android:orientation="vertical"
     android:padding="6dp"
     android:text="Hello"
+    android:textColor="#f500d1"
     android:textAlignment="center" />
