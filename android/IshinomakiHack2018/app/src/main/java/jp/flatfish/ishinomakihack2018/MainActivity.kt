@@ -24,11 +24,9 @@ import android.content.pm.PackageManager
 import android.support.v4.content.ContextCompat
 import android.Manifest
 import android.location.LocationManager
-import android.provider.Settings.ACTION_LOCATION_SOURCE_SETTINGS
 import android.content.Intent
 import android.location.Location
 import android.location.LocationListener
-import android.support.annotation.NonNull
 import android.location.LocationProvider
 import android.provider.Settings
 import java.util.stream.Collectors
@@ -72,53 +70,53 @@ class MainActivity : AppCompatActivity(), LocationListener {
             locationManager?.requestLocationUpdates(LocationManager.GPS_PROVIDER,
                     1000, 10f, this)
 
-        textView = LayoutInflater.from(this).inflate(R.layout.text_view, null) as TextView
+            textView = LayoutInflater.from(this).inflate(R.layout.text_view, null) as TextView
 
-        //ARCore
-        arFragment = supportFragmentManager.findFragmentById(R.id.ux_fragment) as ArFragment?
-        ViewRenderable.builder()
-                .setView(this, textView)
-                .build()
-                .thenAccept({ renderable -> viewRenderable = renderable })
+            //ARCore
+            arFragment = supportFragmentManager.findFragmentById(R.id.ux_fragment) as ArFragment?
+            ViewRenderable.builder()
+                    .setView(this, textView)
+                    .build()
+                    .thenAccept({ renderable -> viewRenderable = renderable })
 
-        arFragment?.setOnTapArPlaneListener { hitResult: HitResult, plane: Plane, motionEvent: MotionEvent ->
-            Log.d(TAG+"hogehoge", "tapped!!")
-            // Create the Anchor.
-            val anchor = hitResult.createAnchor()
-            val anchorNode = AnchorNode(anchor)
-            anchorNode.setParent(arFragment?.getArSceneView()?.scene)
+            arFragment?.setOnTapArPlaneListener { hitResult: HitResult, plane: Plane, motionEvent: MotionEvent ->
+                Log.d(TAG + "hogehoge", "tapped!!")
+                // Create the Anchor.
+                val anchor = hitResult.createAnchor()
+                val anchorNode = AnchorNode(anchor)
+                anchorNode.setParent(arFragment?.getArSceneView()?.scene)
 
-            val andy = TransformableNode(arFragment?.getTransformationSystem())
-            andy.setParent(anchorNode)
-            andy.renderable = viewRenderable
-            andy.select()
+                val andy = TransformableNode(arFragment?.getTransformationSystem())
+                andy.setParent(anchorNode)
+                andy.renderable = viewRenderable
+                andy.select()
 
-            takePhoto()
-        }
+                takePhoto()
+            }
 
-        //Firebase
-        val db: FirebaseFirestore = FirebaseFirestore.getInstance()
-        db.collection("samples")
-                .get()
-                .addOnCompleteListener { task ->
-                    if (task.isSuccessful) {
-                        for (document in task.result) {
-                            val data = document.data
-                            val beer = Beer()
-                            beer.name = data.get("name").toString()
-                            beer.msg = data.get("msg").toString()
+            //Firebase
+            val db: FirebaseFirestore = FirebaseFirestore.getInstance()
+            db.collection("samples")
+                    .get()
+                    .addOnCompleteListener { task ->
+                        if (task.isSuccessful) {
+                            for (document in task.result) {
+                                val data = document.data
+                                val beer = Beer()
+                                beer.name = data.get("name").toString()
+                                beer.msg = data.get("msg").toString()
 //                            beer.tags = data.get("tags")
 //                            beer.location = data.get("location")
-                            mBeers.add(beer)
-                            Log.d(TAG, document.id + " => " + document.data)
+                                mBeers.add(beer)
+                                Log.d(TAG, document.id + " => " + document.data)
+                            }
+                        } else {
+                            Log.w(TAG, "Error getting documents.", task.exception)
                         }
-                    } else {
-                        Log.w(TAG, "Error getting documents.", task.exception)
                     }
-                }
-
-
+        }
     }
+
     private fun locationStart() {
         Log.d("debug", "locationStart()")
 
@@ -147,7 +145,6 @@ class MainActivity : AppCompatActivity(), LocationListener {
                 1000, 50f, this)
 
     }
-
 
     override fun onStatusChanged(provider: String, status: Int, extras: Bundle) {
         when (status) {
@@ -210,7 +207,6 @@ class MainActivity : AppCompatActivity(), LocationListener {
         nowLocation = location
         Log.d("debug", "Latitude: ${location.latitude}")
         Log.d("debug", "Longitude: ${location.longitude}")
-
     }
 
     override fun onProviderEnabled(p0: String?) {
@@ -237,7 +233,8 @@ class MainActivity : AppCompatActivity(), LocationListener {
                 toast.show()
             }
         }
-//    README: 画像を取得したあとMLKitでラベルを検出する
+    }
+    //    README: 画像を取得したあとMLKitでラベルを検出する
     private fun takePhoto() {
         val view = arFragment?.getArSceneView()
 
