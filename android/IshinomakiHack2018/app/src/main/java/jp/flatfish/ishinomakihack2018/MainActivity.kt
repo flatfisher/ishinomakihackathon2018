@@ -23,12 +23,14 @@ import android.support.v4.app.ActivityCompat
 import android.content.pm.PackageManager
 import android.support.v4.content.ContextCompat
 import android.Manifest
+import android.content.BroadcastReceiver
 import android.location.LocationManager
 import android.content.Intent
 import android.location.Location
 import android.location.LocationListener
 import android.location.LocationProvider
 import android.provider.Settings
+import com.google.firebase.firestore.GeoPoint
 import java.util.stream.Collectors
 import com.google.firebase.ml.vision.FirebaseVision
 import com.google.firebase.ml.vision.common.FirebaseVisionImage
@@ -74,11 +76,10 @@ class MainActivity : AppCompatActivity(), LocationListener {
             val anchorNode = AnchorNode(anchor)
             anchorNode.setParent(arFragment?.getArSceneView()?.scene)
 
-            val andy = TransformableNode(arFragment?.getTransformationSystem())
-            andy.setParent(anchorNode)
-            andy.renderable = viewRenderable
-            andy.select()
-            takePhoto()
+            calcDistance()
+            sortedBeers = sort(mBeers) as MutableList<Beer>
+
+            takePhoto(anchorNode)
         }
 
         //README: Getting data from firestore
@@ -92,11 +93,17 @@ class MainActivity : AppCompatActivity(), LocationListener {
                             val beer = Beer()
                             beer.name = data.get("name").toString()
                             beer.msg = data.get("msg").toString()
-//                            beer.tags = data.get("tags")
-//                            beer.location = data.get("location")
+                            val tags = data.get("tags").toString()
+                            beer.tags = tags.substring(1, tags.lastIndex).split(",", limit = 0).toTypedArray()
+                            beer.location = data.get("location") as? GeoPoint
                             mBeers.add(beer)
+                            Log.d("hogehoge", beer.toString())
                             Log.d(TAG, document.id + " => " + document.data)
                         }
+
+                        calcDistance()
+                        sortedBeers = sort(mBeers) as MutableList<Beer>
+
                     } else {
                         Log.w(TAG, "Error getting documents.", task.exception)
                     }
@@ -177,7 +184,7 @@ class MainActivity : AppCompatActivity(), LocationListener {
         return beers.stream().sorted { beer1, beer2 ->
             if(beer1.distance == null || beer2.distance == null) {
                 return@sorted 0
-            } else if (beer1.distance!! > beer2.distance!!) {
+            } else if (beer1.distance!! < beer2.distance!!) {
                 return@sorted -1
             } else {
                 return@sorted 1
@@ -189,23 +196,41 @@ class MainActivity : AppCompatActivity(), LocationListener {
         mBeers.forEach { beer ->
             nowLocation?.let {
                 beer.calcDist(it.latitude, it.longitude)
+                Log.d("hogehoge", "distance:${beer.distance}")
             }
         }
     }
 
-    private fun getBeerEstmate(tag: String): Beer? {
-        sortedBeers?.forEach { beer ->
+    private fun getBeerEstimate(tag: String): Beer? {
+        /*sortedBeers?.forEach { beer ->
+            if (beer.distance?:Float.MAX_VALUE > DISTANCE_MAX) {
+                break
+            }
+            beer.checkTag(tag)?.let {
+                return it
+            }
+        }*/
+        for (beer in sortedBeers) {
+            if (beer.distance?:Float.MAX_VALUE > DISTANCE_MAX) {
+                break
+            }
             beer.checkTag(tag)?.let {
                 return it
             }
         }
+        Log.d("hogehoge", "distance")
         return null
     }
 
     override fun onLocationChanged(location: Location) {
         nowLocation = location
-        Log.d("debug", "Latitude: ${location.latitude}")
-        Log.d("debug", "Longitude: ${location.longitude}")
+
+        calcDistance()
+        sortedBeers = sort(mBeers) as MutableList<Beer>
+        Toast.makeText(this, "Location Changed", Toast.LENGTH_SHORT).show()
+
+        Log.d("hogehoge1", "Latitude: ${location.latitude}")
+        Log.d("hogehoge", "Longitude: ${location.longitude}")
     }
 
     override fun onProviderEnabled(p0: String?) {
@@ -234,7 +259,7 @@ class MainActivity : AppCompatActivity(), LocationListener {
         }
     }
     //    README: 画像を取得したあとMLKitでラベルを検出する
-    private fun takePhoto() {
+    private fun takePhoto(anchorNode:AnchorNode) {
         val view = arFragment?.getArSceneView()
 
         // Create a bitmap the size of the scene view.
@@ -250,23 +275,45 @@ class MainActivity : AppCompatActivity(), LocationListener {
                 Log.d(TAG+"hogehoge", "copyResult")
 //              README: ラベルの検出
                 val image = FirebaseVisionImage.fromBitmap(bitmap)
+
                 FirebaseVision.getInstance()
                         .visionLabelDetector
                         .detectInImage(image)
                         .addOnSuccessListener { labels ->
                             labels.forEach {
                                 Log.d("labeling hogehoge", "${it.label}: ${it.confidence}")
-                                textView?.text = it.label
+                                Log.d("confirm hogehoge", "${it.label}: ${it.confidence}")
+                                val beer = getBeerEstimate(it.label)
+                                beer?.let {
+                                    Log.d("msg", beer?.msg)
+                                    val andy = TransformableNode(arFragment?.getTransformationSystem())
+                                    andy.setParent(anchorNode)
+                                    andy.renderable = viewRenderable
+                                    andy.select()
+                                    textView?.text = it.msg
+                                    return@forEach
+                                }
                             }
-                            labelList.addAll(labels)
+                            //labelList.addAll(labels)
                         }
                         .addOnFailureListener { e ->
                             e.printStackTrace()
                         }
                         .addOnCompleteListener{
-                            labelList.forEach {
+                           /* labelList.forEach {
                                 Log.d("confirm hogehoge", "${it.label}: ${it.confidence}")
-                            }
+                                val beer = getBeerEstimate(it.label)
+                                beer?.let {
+                                    Log.d("msg", beer?.msg)
+                                    val andy = TransformableNode(arFragment?.getTransformationSystem())
+                                    andy.setParent(anchorNode)
+                                    andy.renderable = viewRenderable
+                                    andy.select()
+                                    textView?.text = it.msg
+                                    return@forEach
+                                }
+                            }*/
+                            Toast.makeText(this, "Get Firestore Data", Toast.LENGTH_SHORT).show()
                         }
             } else {
                 val toast = Toast.makeText(this,
@@ -275,5 +322,9 @@ class MainActivity : AppCompatActivity(), LocationListener {
             }
             handlerThread.quitSafely()
         }, Handler(handlerThread.looper))
+    }
+
+    companion object {
+        const val DISTANCE_MAX: Float = 500.0f
     }
 }
