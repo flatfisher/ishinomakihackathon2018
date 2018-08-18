@@ -3,13 +3,11 @@ package jp.flatfish.ishinomakihack2018
 import android.app.Activity
 import android.app.ActivityManager
 import android.content.Context
-import android.content.Intent
 import android.graphics.Bitmap
-import android.graphics.BitmapFactory
 import android.os.*
 import android.support.v7.app.AppCompatActivity
-import android.support.v4.content.FileProvider
 import android.util.Log
+import android.view.LayoutInflater
 import android.view.MotionEvent
 import android.view.PixelCopy
 import android.widget.TextView
@@ -19,18 +17,11 @@ import com.google.ar.core.Plane
 import com.google.ar.sceneform.AnchorNode
 import com.google.ar.sceneform.rendering.ViewRenderable
 import com.google.ar.sceneform.ux.ArFragment
+import com.google.ar.sceneform.ux.TransformableNode
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.ml.vision.FirebaseVision
 import com.google.firebase.ml.vision.common.FirebaseVisionImage
 import com.google.firebase.ml.vision.label.FirebaseVisionLabel
-import kotlinx.android.synthetic.main.test_view.*
-import java.io.ByteArrayOutputStream
-import java.io.File
-import java.io.FileOutputStream
-import java.io.IOException
-import java.text.SimpleDateFormat
-import java.util.*
-import kotlin.math.max
 
 
 class MainActivity : AppCompatActivity() {
@@ -41,6 +32,8 @@ class MainActivity : AppCompatActivity() {
     private var viewRenderable: ViewRenderable? = null
     private var labelList = mutableListOf<FirebaseVisionLabel>()
 
+    private var textView:TextView? = null
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         if (!checkIsSupportedDeviceOrFinish(this)) {
@@ -48,29 +41,26 @@ class MainActivity : AppCompatActivity() {
         }
         setContentView(R.layout.activity_main)
 
-//        val textView = TextView(this)
-//        textView.text = "hello
+        textView = LayoutInflater.from(this).inflate(R.layout.text_view, null) as TextView
 
         //ARCore
         arFragment = supportFragmentManager.findFragmentById(R.id.ux_fragment) as ArFragment?
         ViewRenderable.builder()
-                .setView(this, R.layout.test_view)
+                .setView(this, textView)
                 .build()
                 .thenAccept({ renderable -> viewRenderable = renderable })
 
         arFragment?.setOnTapArPlaneListener { hitResult: HitResult, plane: Plane, motionEvent: MotionEvent ->
             Log.d(TAG+"hogehoge", "tapped!!")
             // Create the Anchor.
-//            val anchor = hitResult.createAnchor()
-//            val anchorNode = AnchorNode(anchor)
-//            anchorNode.setParent(arFragment?.getArSceneView()?.scene)
+            val anchor = hitResult.createAnchor()
+            val anchorNode = AnchorNode(anchor)
+            anchorNode.setParent(arFragment?.getArSceneView()?.scene)
 
-            // Create the transformable andy and add it to the anchor.
-//            val andy = TransformableNode(arFragment?.getTransformationSystem())
-//            andy.setParent(anchorNode)
-//            andy.renderable = viewRenderable
-//            andy.select()
-//            val bitmap = getBitmap()
+            val andy = TransformableNode(arFragment?.getTransformationSystem())
+            andy.setParent(anchorNode)
+            andy.renderable = viewRenderable
+            andy.select()
 
             takePhoto()
         }
@@ -134,6 +124,7 @@ class MainActivity : AppCompatActivity() {
                         .addOnSuccessListener { labels ->
                             labels.forEach {
                                 Log.d("labeling hogehoge", "${it.label}: ${it.confidence}")
+                                textView?.text = it.label
                             }
                             labelList.addAll(labels)
                         }

@@ -6,4 +6,5 @@
     android:gravity="center"
     android:orientation="vertical"
     android:padding="6dp"
+    android:text="Hello"
     android:textAlignment="center" />
