@@ -1,10 +1,25 @@
 <template lang='pug'>
 .vue-index
     .reactive-title {{ reactiveTitle() }}
-    common-hero.is-dark(:title='title' :subtitle='subtitle')
+    common-hero.is-dark.is-small.medium(:title='title' :subtitle='subtitle')
 
-    section.main.section
-        .map(ref='map')
+    .columns.is-gapless
+        .column.is-9
+            .map(ref='map')
+        .column.is-3
+            .manager.box.tile.is-vertical.spread-out
+                .latlng
+                    p.title.is-4 緯度 :
+                    p.subtitle {{ (currentPosition != null) ? currentPosition.lat : 'null' }}
+                    hr
+                    p.title.is-4 経度 :
+                    p.subtitle {{ (currentPosition != null) ? currentPosition.lng : 'null' }}
+                    hr
+
+                button.button.is-large.is-success.is-fullwidth(@click='')
+                    span Go
+                    b-icon(icon='run-fast')
+
 </template>
 
 <script lang='ts'>
@@ -12,7 +27,6 @@ import { Vue, Component } from 'vue-property-decorator';
 import Buefy from 'buefy';
 import RootVue from '@/components/base/RootVue';
 import { CommonError } from '@/scripts/model/error/CommonError';
-import InputModalOptions from '@/scripts/model/part/InputModalOptions';
 import { LatLng } from '@/scripts/model/map/LatLng';
 
 import CommonNavbar from '@/components/common/CommonNavbar.vue';
@@ -32,8 +46,8 @@ Vue.use(Buefy);
     }
 })
 export default class Index extends RootVue {
-    public title = 'Sample';
-    public subtitle = 'Index';
+    public title = 'Arai';
+    public subtitle = 'AR × AI';
 
     protected map: google.maps.Map | null = null;
     protected currentPosition: LatLng | null = null;
@@ -86,6 +100,7 @@ export default class Index extends RootVue {
             this.map = new google.maps.Map(canvas, mapOptions);
             this.map.addListener('click', e => {
                 console.log(e.latLng.lat(), e.latLng.lng());
+                this.currentPosition = { lat: e.latLng.lat(), lng: e.latLng.lng() };
                 this.setMarker(e.latLng);
                 this.getData();
                 // this.storeData('macbook', 'my partner', { lat: e.latLng.lat(), lng: e.latLng.lng() }, ['laptop', 'computer']);
@@ -139,12 +154,14 @@ export default class Index extends RootVue {
 <style lang='sass'>
 @import 'entry/all'
 
+$hero-height-medium: 8rem
 .vue-index
-    section.main
-        max-width: 800px
-        margin-left: auto
-        margin-right: auto
+    .medium
+        height: $hero-height-medium
 
-        .map
-            height: 100vh
+    .map, .manager
+        height: calc(100vh - #{$hero-height-medium})
+
+    .spread-out
+        justify-content: space-evenly
 </style>
