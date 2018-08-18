@@ -1,17 +1,21 @@
-<template>
-  <div id="app">
-    <img alt="Vue logo" src="./assets/logo.png">
-    <HelloWorld msg="Welcome to Your Vue.js + TypeScript App"/>
-  </div>
+<template lang="pug">
+  #app
+    img(alt='Vue logo' src='./assets/logo.png')
+    GoogleMap
 </template>
 
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
-import HelloWorld from './components/HelloWorld.vue';
+import GoogleMap from './components/GoogleMap.vue';
+
+import firebase from 'firebase';
+import VueFire from 'vuefire';
+
+Vue.use(VueFire);
 
 @Component({
   components: {
-    HelloWorld,
+    GoogleMap,
   },
 })
 export default class App extends Vue {}
