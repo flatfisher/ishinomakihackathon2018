@@ -59,6 +59,50 @@ class MainActivity : AppCompatActivity(), LocationListener {
         }
         setContentView(R.layout.activity_main)
 
+//        README: Prepare ARCore
+        textView = LayoutInflater.from(this).inflate(R.layout.text_view, null) as TextView
+        arFragment = supportFragmentManager.findFragmentById(R.id.ux_fragment) as ArFragment?
+        ViewRenderable.builder()
+                .setView(this, textView)
+                .build()
+                .thenAccept({ renderable -> viewRenderable = renderable })
+
+        arFragment?.setOnTapArPlaneListener { hitResult: HitResult, plane: Plane, motionEvent: MotionEvent ->
+            Log.d(TAG + "hogehoge", "tapped!!")
+            // Create the Anchor.
+            val anchor = hitResult.createAnchor()
+            val anchorNode = AnchorNode(anchor)
+            anchorNode.setParent(arFragment?.getArSceneView()?.scene)
+
+            val andy = TransformableNode(arFragment?.getTransformationSystem())
+            andy.setParent(anchorNode)
+            andy.renderable = viewRenderable
+            andy.select()
+            takePhoto()
+        }
+
+        //README: Getting data from firestore
+        val db: FirebaseFirestore = FirebaseFirestore.getInstance()
+        db.collection("samples")
+                .get()
+                .addOnCompleteListener { task ->
+                    if (task.isSuccessful) {
+                        for (document in task.result) {
+                            val data = document.data
+                            val beer = Beer()
+                            beer.name = data.get("name").toString()
+                            beer.msg = data.get("msg").toString()
+//                            beer.tags = data.get("tags")
+//                            beer.location = data.get("location")
+                            mBeers.add(beer)
+                            Log.d(TAG, document.id + " => " + document.data)
+                        }
+                    } else {
+                        Log.w(TAG, "Error getting documents.", task.exception)
+                    }
+                }
+
+//        README: Prepare getting current location
         if (ContextCompat.checkSelfPermission(this,
                         Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
             ActivityCompat.requestPermissions(this,
@@ -69,51 +113,6 @@ class MainActivity : AppCompatActivity(), LocationListener {
 
             locationManager?.requestLocationUpdates(LocationManager.GPS_PROVIDER,
                     1000, 10f, this)
-
-            textView = LayoutInflater.from(this).inflate(R.layout.text_view, null) as TextView
-
-            //ARCore
-            arFragment = supportFragmentManager.findFragmentById(R.id.ux_fragment) as ArFragment?
-            ViewRenderable.builder()
-                    .setView(this, textView)
-                    .build()
-                    .thenAccept({ renderable -> viewRenderable = renderable })
-
-            arFragment?.setOnTapArPlaneListener { hitResult: HitResult, plane: Plane, motionEvent: MotionEvent ->
-                Log.d(TAG + "hogehoge", "tapped!!")
-                // Create the Anchor.
-                val anchor = hitResult.createAnchor()
-                val anchorNode = AnchorNode(anchor)
-                anchorNode.setParent(arFragment?.getArSceneView()?.scene)
-
-                val andy = TransformableNode(arFragment?.getTransformationSystem())
-                andy.setParent(anchorNode)
-                andy.renderable = viewRenderable
-                andy.select()
-
-                takePhoto()
-            }
-
-            //Firebase
-            val db: FirebaseFirestore = FirebaseFirestore.getInstance()
-            db.collection("samples")
-                    .get()
-                    .addOnCompleteListener { task ->
-                        if (task.isSuccessful) {
-                            for (document in task.result) {
-                                val data = document.data
-                                val beer = Beer()
-                                beer.name = data.get("name").toString()
-                                beer.msg = data.get("msg").toString()
-//                            beer.tags = data.get("tags")
-//                            beer.location = data.get("location")
-                                mBeers.add(beer)
-                                Log.d(TAG, document.id + " => " + document.data)
-                            }
-                        } else {
-                            Log.w(TAG, "Error getting documents.", task.exception)
-                        }
-                    }
         }
     }
 
