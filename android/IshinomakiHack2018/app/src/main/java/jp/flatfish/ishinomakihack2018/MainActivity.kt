@@ -14,6 +14,7 @@ import com.google.firebase.firestore.FirebaseFirestore
 class MainActivity : AppCompatActivity() {
     private val TAG = MainActivity::class.java!!.getSimpleName()
     private val MIN_OPENGL_VERSION = 3.0
+    private var mBeers = mutableListOf<Beer>()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -29,13 +30,13 @@ class MainActivity : AppCompatActivity() {
                 .addOnCompleteListener { task ->
                     if (task.isSuccessful) {
                         for (document in task.result) {
-                            Log.d(TAG, document.id + " => " + document.data)
-//                            val beer = Beer()
-//                            beer.name = document.data.get("name").toString()
-//                            beer.msg = document.data.get("msg").toString()
-//                            beer.tags = document.data.get("tags") as Array<String>
-//                            beer.location = document.data.get("location") as GeoPoint?
-//                            Log.d("Beer", beer.toString())
+                            val data = document.data
+                            val beer = Beer()
+                            beer.name = data.get("name").toString()
+                            beer.msg = data.get("msg").toString()
+//                            beer.tags = data.get("tags")
+//                            beer.location = data.get("location")
+                            mBeers.add(beer)
                         }
                     } else {
                         Log.w(TAG, "Error getting documents.", task.exception)
