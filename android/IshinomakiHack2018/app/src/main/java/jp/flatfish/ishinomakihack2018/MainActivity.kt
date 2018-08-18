@@ -19,14 +19,32 @@ import com.google.ar.sceneform.rendering.ViewRenderable
 import com.google.ar.sceneform.ux.ArFragment
 import com.google.ar.sceneform.ux.TransformableNode
 import com.google.firebase.firestore.FirebaseFirestore
+import android.support.v4.app.ActivityCompat
+import android.content.pm.PackageManager
+import android.support.v4.content.ContextCompat
+import android.Manifest
+import android.location.LocationManager
+import android.content.Intent
+import android.location.Location
+import android.location.LocationListener
+import android.location.LocationProvider
+import android.provider.Settings
+import java.util.stream.Collectors
 import com.google.firebase.ml.vision.FirebaseVision
 import com.google.firebase.ml.vision.common.FirebaseVisionImage
 import com.google.firebase.ml.vision.label.FirebaseVisionLabel
 
 
-class MainActivity : AppCompatActivity() {
-    private val TAG = MainActivity::class.java!!.getSimpleName()
+class MainActivity : AppCompatActivity(), LocationListener {
+    private val TAG = MainActivity::class.java.simpleName
+
     private val MIN_OPENGL_VERSION = 3.0
+    private var mBeers = mutableListOf<Beer>()
+    private var sortedBeers = mutableListOf<Beer>()
+
+    private var nowLocation: Location? = null
+
+    private var locationManager: LocationManager? = null
 
     private var arFragment: ArFragment? = null
     private var viewRenderable: ViewRenderable? = null
@@ -41,9 +59,8 @@ class MainActivity : AppCompatActivity() {
         }
         setContentView(R.layout.activity_main)
 
+//        README: Prepare ARCore
         textView = LayoutInflater.from(this).inflate(R.layout.text_view, null) as TextView
-
-        //ARCore
         arFragment = supportFragmentManager.findFragmentById(R.id.ux_fragment) as ArFragment?
         ViewRenderable.builder()
                 .setView(this, textView)
@@ -51,7 +68,7 @@ class MainActivity : AppCompatActivity() {
                 .thenAccept({ renderable -> viewRenderable = renderable })
 
         arFragment?.setOnTapArPlaneListener { hitResult: HitResult, plane: Plane, motionEvent: MotionEvent ->
-            Log.d(TAG+"hogehoge", "tapped!!")
+            Log.d(TAG + "hogehoge", "tapped!!")
             // Create the Anchor.
             val anchor = hitResult.createAnchor()
             val anchorNode = AnchorNode(anchor)
@@ -61,17 +78,23 @@ class MainActivity : AppCompatActivity() {
             andy.setParent(anchorNode)
             andy.renderable = viewRenderable
             andy.select()
-
             takePhoto()
         }
 
-        //Firebase
+        //README: Getting data from firestore
         val db: FirebaseFirestore = FirebaseFirestore.getInstance()
         db.collection("samples")
                 .get()
                 .addOnCompleteListener { task ->
                     if (task.isSuccessful) {
                         for (document in task.result) {
+                            val data = document.data
+                            val beer = Beer()
+                            beer.name = data.get("name").toString()
+                            beer.msg = data.get("msg").toString()
+//                            beer.tags = data.get("tags")
+//                            beer.location = data.get("location")
+                            mBeers.add(beer)
                             Log.d(TAG, document.id + " => " + document.data)
                         }
                     } else {
@@ -79,9 +102,58 @@ class MainActivity : AppCompatActivity() {
                     }
                 }
 
+//        README: Prepare getting current location
+        if (ContextCompat.checkSelfPermission(this,
+                        Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+            ActivityCompat.requestPermissions(this,
+                    arrayOf(Manifest.permission.ACCESS_FINE_LOCATION),
+                    1000)
+        } else {
+            locationStart()
+
+            locationManager?.requestLocationUpdates(LocationManager.GPS_PROVIDER,
+                    1000, 10f, this)
+        }
     }
 
-    fun checkIsSupportedDeviceOrFinish(activity: Activity): Boolean {
+    private fun locationStart() {
+        Log.d("debug", "locationStart()")
+
+        // LocationManager インスタンス生成
+        locationManager = getSystemService(Context.LOCATION_SERVICE) as LocationManager
+
+        if (locationManager != null && locationManager!!.isProviderEnabled(LocationManager.GPS_PROVIDER)) {
+            Log.d("debug", "location manager Enabled")
+        } else {
+            // GPSを設定するように促す
+            val settingsIntent = Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS)
+            startActivity(settingsIntent)
+            Log.d("debug", "not gpsEnable, startActivity")
+        }
+
+        if (ContextCompat.checkSelfPermission(this,
+                        Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+            ActivityCompat.requestPermissions(this,
+                    arrayOf(Manifest.permission.ACCESS_FINE_LOCATION), 1000)
+
+            Log.d("debug", "checkSelfPermission false")
+            return
+        }
+
+        locationManager?.requestLocationUpdates(LocationManager.GPS_PROVIDER,
+                1000, 50f, this)
+
+    }
+
+    override fun onStatusChanged(provider: String, status: Int, extras: Bundle) {
+        when (status) {
+            LocationProvider.AVAILABLE -> Log.d("debug", "LocationProvider.AVAILABLE")
+            LocationProvider.OUT_OF_SERVICE -> Log.d("debug", "LocationProvider.OUT_OF_SERVICE")
+            LocationProvider.TEMPORARILY_UNAVAILABLE -> Log.d("debug", "LocationProvider.TEMPORARILY_UNAVAILABLE")
+        }
+    }
+
+    private fun checkIsSupportedDeviceOrFinish(activity: Activity): Boolean {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.N) {
             Log.e(TAG, "Sceneform requires Android N or later")
             Toast.makeText(activity, "Sceneform requires Android N or later", Toast.LENGTH_LONG).show()
@@ -101,7 +173,67 @@ class MainActivity : AppCompatActivity() {
         return true
     }
 
-//    README: 画像を取得したあとMLKitでラベルを検出する
+    private fun sort(beers: List<Beer>): List<Beer> {
+        return beers.stream().sorted { beer1, beer2 ->
+            if(beer1.distance == null || beer2.distance == null) {
+                return@sorted 0
+            } else if (beer1.distance!! > beer2.distance!!) {
+                return@sorted -1
+            } else {
+                return@sorted 1
+            }
+        }.collect(Collectors.toList())
+    }
+
+    private fun calcDistance() {
+        mBeers.forEach { beer ->
+            nowLocation?.let {
+                beer.calcDist(it.latitude, it.longitude)
+            }
+        }
+    }
+
+    private fun getBeerEstmate(tag: String): Beer? {
+        sortedBeers?.forEach { beer ->
+            beer.checkTag(tag)?.let {
+                return it
+            }
+        }
+        return null
+    }
+
+    override fun onLocationChanged(location: Location) {
+        nowLocation = location
+        Log.d("debug", "Latitude: ${location.latitude}")
+        Log.d("debug", "Longitude: ${location.longitude}")
+    }
+
+    override fun onProviderEnabled(p0: String?) {
+        TODO("not implemented") //To change body of created functions use File | Settings | File Templates.
+    }
+
+    override fun onProviderDisabled(p0: String?) {
+        TODO("not implemented") //To change body of created functions use File | Settings | File Templates.
+    }
+
+    override fun onRequestPermissionsResult(
+            requestCode: Int, permissions: Array<String>, grantResults: IntArray) {
+        if (requestCode == 1000) {
+            // 使用が許可された
+            if (grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                Log.d("debug", "checkSelfPermission true")
+
+                locationStart()
+
+            } else {
+                // それでも拒否された時の対応
+                val toast = Toast.makeText(this,
+                        "これ以上なにもできません", Toast.LENGTH_SHORT)
+                toast.show()
+            }
+        }
+    }
+    //    README: 画像を取得したあとMLKitでラベルを検出する
     private fun takePhoto() {
         val view = arFragment?.getArSceneView()
 
