@@ -16,10 +16,11 @@
                     p.subtitle {{ (currentPosition != null) ? currentPosition.lng : 'null' }}
                     hr
 
-                button.button.is-large.is-success.is-fullwidth(@click='')
+                button.button.is-large.is-success.is-fullwidth(@click='isComponentModalActive = !isComponentModalActive')
                     span Go
                     b-icon(icon='run-fast')
-
+    b-modal(:active.sync='isComponentModalActive')
+        input-modal(:modalItem.sync='modalItem')
 </template>
 
 <script lang='ts'>
@@ -28,21 +29,25 @@ import Buefy from 'buefy';
 import RootVue from '@/components/base/RootVue';
 import { CommonError } from '@/scripts/model/error/CommonError';
 import { LatLng } from '@/scripts/model/map/LatLng';
-
 import CommonNavbar from '@/components/common/CommonNavbar.vue';
 import CommonHero from '@/components/common/CommonHero.vue';
+import InputModal from '@/components/part/InputModal.vue';
 import firebaseApp, { db } from '@/scripts/firebase/firebaseApp';
 import VueFire from 'vuefire';
 
 Vue.use(VueFire);
 Vue.use(Buefy);
 
+export interface modalItemOptions {
+    message: string;
+    tags: string[];
+}
 /**
  * Vue Component
  */
 @Component({
     components: {
-        CommonHero
+        CommonHero, InputModal
     }
 })
 export default class Index extends RootVue {
@@ -54,7 +59,10 @@ export default class Index extends RootVue {
     protected marker: google.maps.Marker | null = null;
 
     protected isComponentModalActive = false;
-    protected message = '';
+    protected modalItem: modalItemOptions = {
+        message: '',
+        tags: []
+    }
 
     protected async getCurrentPosition(): Promise<void> {
         if (navigator.geolocation) {
