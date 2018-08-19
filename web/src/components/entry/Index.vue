@@ -10,15 +10,15 @@
             .manager.box.tile.is-vertical.spread-out
                 .latlng
                     p.title.is-4 緯度 :
-                    p.subtitle {{ (currentPosition != null) ? currentPosition.lat : 'null' }}
+                    p.subtitle {{ (pinPosition != null) ? pinPosition.lat : 'null' }}
                     hr
                     p.title.is-4 経度 :
-                    p.subtitle {{ (currentPosition != null) ? currentPosition.lng : 'null' }}
+                    p.subtitle {{ (pinPosition != null) ? pinPosition.lng : 'null' }}
                     hr
-
-                button.button.is-large.is-success.is-fullwidth(@click='isComponentModalActive = !isComponentModalActive')
-                    span Go
-                    b-icon(icon='run-fast')
+                b-tooltip.is-danger(label='まずはマップにピンをセットしよう' position='is-top' size='is-large' multilined=true :active='isButtonActive == false')
+                    button.button.is-large.is-success.is-fullwidth(:disabled='isButtonActive == false' @click='isComponentModalActive = !isComponentModalActive')
+                        b-icon(icon='pen')
+                        span メッセージ入力
     b-modal(:active.sync='isComponentModalActive')
         input-modal(:modalItem.sync='modalItem')
 </template>
@@ -29,10 +29,11 @@ import Buefy from 'buefy';
 import RootVue from '@/components/base/RootVue';
 import { CommonError } from '@/scripts/model/error/CommonError';
 import { LatLng } from '@/scripts/model/map/LatLng';
+import { labelLang } from '@/components/part/InputModal.vue';
 import CommonNavbar from '@/components/common/CommonNavbar.vue';
 import CommonHero from '@/components/common/CommonHero.vue';
 import InputModal from '@/components/part/InputModal.vue';
-import firebaseApp, { db } from '@/scripts/firebase/firebaseApp';
+import { aswait } from '@/scripts/util/AsyncTimeout';
 import VueFire from 'vuefire';
 
 Vue.use(VueFire);
@@ -40,7 +41,8 @@ Vue.use(Buefy);
 
 export interface modalItemOptions {
     message: string;
-    tags: string[];
+    tags: labelLang[];
+    pinPosition: LatLng;
 }
 /**
  * Vue Component
@@ -55,21 +57,24 @@ export default class Index extends RootVue {
     public subtitle = 'AR × AI';
 
     protected map: google.maps.Map | null = null;
+    protected pinPosition: LatLng | null = null;
     protected currentPosition: LatLng | null = null;
     protected marker: google.maps.Marker | null = null;
 
     protected isComponentModalActive = false;
+    protected isButtonActive = false;
     protected modalItem: modalItemOptions = {
         message: '',
-        tags: []
+        tags: [],
+        pinPosition: {lat: 0, lng: 0}
     }
 
     protected async getCurrentPosition(): Promise<void> {
         if (navigator.geolocation) {
             await navigator.geolocation.getCurrentPosition(position => {
-                console.log(("緯度:"+position.coords.latitude+",経度"+position.coords.longitude));
                 const currentLatLng = { lat: position.coords.latitude, lng: position.coords.longitude };
                 this.currentPosition = currentLatLng;
+                this.initMapComponent();
             }, error => {
                 switch(error.code) {
                     case 1: //PERMISSION_DENIED
@@ -92,12 +97,12 @@ export default class Index extends RootVue {
     }
     protected async initMapComponent(): Promise<void> {
         try {
-            // if (this.currentPosition == null) {
-            //     throw new CommonError('位置情報が取れないためマップを表示できません');
-            // }
+            if (this.currentPosition == null) {
+                throw new CommonError('位置情報が取れないためマップを表示できません');
+            }
             const canvas = (this.$refs['map'] as HTMLElement);
-            // const latlng = new google.maps.LatLng(this.currentPosition.coords.latitude, this.currentPosition.coords.longitude);
-            const latlng = new google.maps.LatLng(38, 140);
+            const latlng = new google.maps.LatLng(this.currentPosition.lat, this.currentPosition.lng);
+            // const latlng = new google.maps.LatLng(38, 140);
             const mapOptions: google.maps.MapOptions = {
                 zoom: 13,
                 center: {
@@ -107,11 +112,10 @@ export default class Index extends RootVue {
             }
             this.map = new google.maps.Map(canvas, mapOptions);
             this.map.addListener('click', e => {
-                console.log(e.latLng.lat(), e.latLng.lng());
-                this.currentPosition = { lat: e.latLng.lat(), lng: e.latLng.lng() };
+                this.pinPosition = { lat: e.latLng.lat(), lng: e.latLng.lng() };
                 this.setMarker(e.latLng);
-                this.getData();
-                // this.storeData('macbook', 'my partner', { lat: e.latLng.lat(), lng: e.latLng.lng() }, ['laptop', 'computer']);
+                this.modalItem.pinPosition = { lat: e.latLng.lat(), lng: e.latLng.lng() };
+                this.isButtonActive = true;
             });
         } catch (e) {
             this.$dialog.alert(e.message);
@@ -129,32 +133,7 @@ export default class Index extends RootVue {
     }
 
     protected mounted(): void {
-        this.executeLoading( async () => {
-            // await this.getCurrentPosition();
-            await this.initMapComponent();
-        });
-    }
-    protected getData() {
-        const dataRef = db.collection('items').doc('ML4sQ7Nr2TYpI5KnUgTB');
-        dataRef.get().then(doc => {
-            if (doc.exists) {
-                console.log("Document data:", doc.data());
-            } else {
-                console.log("No such document!");
-            }
-        }).catch(error => {
-            console.log("Error getting document:", error);
-        });
-    }
-
-    protected storeData(name: string, message: string, location: {lat: number,lng: number} , tags: string[]) {
-        const dataRef = db.collection('items').doc();
-        dataRef.set({
-            name,
-            msg: message,
-            location,
-            tags
-        });
+        this.getCurrentPosition();
     }
 }
 </script>
@@ -172,4 +151,7 @@ $hero-height-medium: 8rem
 
     .spread-out
         justify-content: space-evenly
+
+    .tooltip
+        display: flex
 </style>
