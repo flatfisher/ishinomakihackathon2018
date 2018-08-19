@@ -2,15 +2,15 @@
 .vue-input-modal
     .modal-card
         header.modal-card-head
-            p.modal-card-title post
+            p.modal-card-title 入力画面
         section.modal-card-body
-            b-field(label='タグを追加')
+            b-field(label='タグ')
                 b-taginput(v-model='modalItem.tags' :data='labels' field='ja' autocomplete icon='label' placeholder='Add a tag' @typing='getFilteredTags')
             b-field(label='メッセージ')
                 b-input(type='textarea' v-model='modalItem.message' maxlength='100')
         footer.arai-modal-card-foot
             button.button(type='button' @click='$parent.close()') close
-            button.button.is-primary() post
+            button.button.is-primary(@click='store') post
     button.modal-close.is-large(aria-label='close')
 </template>
 
@@ -19,6 +19,8 @@ import { Vue, Component, Prop } from 'vue-property-decorator';
 import { modalItemOptions } from '@/components/entry/Index.vue';
 import labelData from '@/resources/JSON/labels.json';
 import * as moji from 'moji';
+import firebaseApp, { db } from '@/scripts/firebase/firebaseApp';
+import { CommonError } from '@/scripts/model/error/CommonError';
 
 export interface labelLang {
     en: string;
@@ -72,6 +74,32 @@ export default class InputModal extends Vue {
     }
     protected closeModal(): void {
         this.$emit('update:isActive', false);
+    }
+    protected store() {
+        const selectedLabel = this.modalItem.tags.map(item => item.en);
+        this.storeData('hoge', this.modalItem.message, this.modalItem.pinPosition, selectedLabel);
+    }
+
+    protected storeData(name: string, message: string, location: {lat: number,lng: number} , tags: string[]) {
+        try {
+            if (location.lat == 0 || location.lng == 0) {
+                throw new CommonError('invalid location value');
+            }
+            const dataRef = db.collection('items').doc();
+            dataRef.set({
+                name,
+                msg: message,
+                location,
+                tags
+            });
+
+        } catch (e) {
+            if (e instanceof CommonError) {
+                this.$dialog.alert({ message: e.message });
+            } else {
+                this.$dialog.alert({ message: e.response.data.error.message });
+            }
+        }
     }
 }
 </script>
