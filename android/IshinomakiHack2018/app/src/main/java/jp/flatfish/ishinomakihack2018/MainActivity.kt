@@ -23,7 +23,6 @@ import android.support.v4.app.ActivityCompat
 import android.content.pm.PackageManager
 import android.support.v4.content.ContextCompat
 import android.Manifest
-import android.content.BroadcastReceiver
 import android.location.LocationManager
 import android.content.Intent
 import android.location.Location
@@ -50,7 +49,7 @@ class MainActivity : AppCompatActivity(), LocationListener {
 
     private var arFragment: ArFragment? = null
     private var viewRenderable: ViewRenderable? = null
-    private var labelList = mutableListOf<FirebaseVisionLabel>()
+    //private var labelList = mutableListOf<FirebaseVisionLabel>()
 
     private var textView:TextView? = null
 
@@ -104,6 +103,8 @@ class MainActivity : AppCompatActivity(), LocationListener {
                         calcDistance()
                         sortedBeers = sort(mBeers) as MutableList<Beer>
 
+                        Toast.makeText(this, "Get Firestore Data", Toast.LENGTH_SHORT).show()
+
                     } else {
                         Log.w(TAG, "Error getting documents.", task.exception)
                     }
@@ -148,7 +149,7 @@ class MainActivity : AppCompatActivity(), LocationListener {
         }
 
         locationManager?.requestLocationUpdates(LocationManager.GPS_PROVIDER,
-                1000, 50f, this)
+                100, 50f, this)
 
     }
 
@@ -202,17 +203,9 @@ class MainActivity : AppCompatActivity(), LocationListener {
     }
 
     private fun getBeerEstimate(tag: String): Beer? {
-        /*sortedBeers?.forEach { beer ->
+        sortedBeers?.forEach { beer ->
             if (beer.distance?:Float.MAX_VALUE > DISTANCE_MAX) {
-                break
-            }
-            beer.checkTag(tag)?.let {
-                return it
-            }
-        }*/
-        for (beer in sortedBeers) {
-            if (beer.distance?:Float.MAX_VALUE > DISTANCE_MAX) {
-                break
+                return@forEach
             }
             beer.checkTag(tag)?.let {
                 return it
@@ -282,7 +275,6 @@ class MainActivity : AppCompatActivity(), LocationListener {
                         .addOnSuccessListener { labels ->
                             labels.forEach {
                                 Log.d("labeling hogehoge", "${it.label}: ${it.confidence}")
-                                Log.d("confirm hogehoge", "${it.label}: ${it.confidence}")
                                 val beer = getBeerEstimate(it.label)
                                 beer?.let {
                                     Log.d("msg", beer?.msg)
@@ -313,7 +305,7 @@ class MainActivity : AppCompatActivity(), LocationListener {
                                     return@forEach
                                 }
                             }*/
-                            Toast.makeText(this, "Get Firestore Data", Toast.LENGTH_SHORT).show()
+
                         }
             } else {
                 val toast = Toast.makeText(this,
@@ -325,6 +317,6 @@ class MainActivity : AppCompatActivity(), LocationListener {
     }
 
     companion object {
-        const val DISTANCE_MAX: Float = 500.0f
+        const val DISTANCE_MAX: Float = 100.0f
     }
 }
