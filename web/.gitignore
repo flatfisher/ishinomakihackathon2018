@@ -1,0 +1,16 @@
+node_modules
+dist
+document
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+src/scripts/firebase/certification.ts
+
+## IDE and Editors
+**/.vs
+**/.vscode
+!**/.vscode/tasks.json
+.idea
+
+## OS
+**/.DS_Store
