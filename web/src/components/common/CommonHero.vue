@@ -2,7 +2,7 @@
 section.vue-common-hero.hero
     .hero-body
         .container
-            h1.title {{ title }}
+            h1.title.is-2 {{ title }}
             h2.subtitle {{ subtitle }}
 </template>
 

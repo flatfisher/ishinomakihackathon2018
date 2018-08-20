@@ -15,6 +15,7 @@
     "dependencies": {
         "@mdi/font": "^2.6.95",
         "@types/googlemaps": "^3.30.11",
+        "@types/moji": "^0.5.0",
         "@types/node": "^10.7.1",
         "babel-core": "^6.26.3",
         "babel-loader": "^7.1.5",
@@ -27,6 +28,7 @@
         "font-awesome": "^4.7.0",
         "html-loader": "^0.5.5",
         "html-webpack-plugin": "^3.2.0",
+        "moji": "^0.5.1",
         "node-sass": "^4.9.3",
         "pug": "^2.0.3",
         "pug-loader": "^2.4.0",

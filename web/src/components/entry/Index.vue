@@ -1,10 +1,25 @@
 <template lang='pug'>
 .vue-index
     .reactive-title {{ reactiveTitle() }}
-    common-hero.is-dark(:title='title' :subtitle='subtitle')
+    common-hero.is-dark.is-small.medium(:title='title' :subtitle='subtitle')
 
-    section.main.section
-        .map(ref='map')
+    .columns.is-gapless
+        .column.is-9
+            .map(ref='map')
+        .column.is-3
+            .manager.box.tile.is-vertical.spread-out
+                .latlng
+                    p.title.is-4 緯度 :
+                    p.subtitle {{ (pinPosition != null) ? pinPosition.lat : 'null' }}
+                    hr
+                    p.title.is-4 経度 :
+                    p.subtitle {{ (pinPosition != null) ? pinPosition.lng : 'null' }}
+                    hr
+                b-tooltip.is-danger(label='まずはマップにピンをセットしよう' position='is-top' size='is-large' multilined=true :active='isButtonActive == false')
+                    button.button.is-large.is-success.is-fullwidth(:disabled='isButtonActive == false' @click='openModal')
+                        b-icon(icon='pen')
+                        span メッセージ入力
+    input-modal(:modalItem.sync='modalItem' :isActive.sync='isComponentModalActive')
 </template>
 
 <script lang='ts'>
@@ -12,42 +27,51 @@ import { Vue, Component } from 'vue-property-decorator';
 import Buefy from 'buefy';
 import RootVue from '@/components/base/RootVue';
 import { CommonError } from '@/scripts/model/error/CommonError';
-import InputModalOptions from '@/scripts/model/part/InputModalOptions';
 import { LatLng } from '@/scripts/model/map/LatLng';
-
+import { labelLang } from '@/components/part/InputModal.vue';
 import CommonNavbar from '@/components/common/CommonNavbar.vue';
 import CommonHero from '@/components/common/CommonHero.vue';
-import firebaseApp, { db } from '@/scripts/firebase/firebaseApp';
+import InputModal from '@/components/part/InputModal.vue';
+import { aswait } from '@/scripts/util/AsyncTimeout';
 import VueFire from 'vuefire';
 
 Vue.use(VueFire);
 Vue.use(Buefy);
 
+export interface modalItemOptions {
+    message: string;
+    tags: labelLang[];
+    pinPosition: LatLng;
+}
 /**
  * Vue Component
  */
 @Component({
     components: {
-        CommonHero
+        CommonHero, InputModal
     }
 })
 export default class Index extends RootVue {
-    public title = 'Sample';
-    public subtitle = 'Index';
+    public title = 'Arai';
+    public subtitle = 'AR × AI';
 
     protected map: google.maps.Map | null = null;
+    protected pinPosition: LatLng | null = null;
     protected currentPosition: LatLng | null = null;
     protected marker: google.maps.Marker | null = null;
 
     protected isComponentModalActive = false;
-    protected message = '';
+    protected isButtonActive = false;
+    protected modalItem: modalItemOptions = {
+        message: '',
+        tags: [],
+        pinPosition: {lat: 0, lng: 0}
+    }
 
-    protected async getCurrentPosition(): Promise<void> {
+    protected getCurrentPosition() {
         if (navigator.geolocation) {
-            await navigator.geolocation.getCurrentPosition(position => {
-                console.log(("緯度:"+position.coords.latitude+",経度"+position.coords.longitude));
-                const currentLatLng = { lat: position.coords.latitude, lng: position.coords.longitude };
-                this.currentPosition = currentLatLng;
+            navigator.geolocation.getCurrentPosition(position => {
+                this.initMapComponent(position);
             }, error => {
                 switch(error.code) {
                     case 1: //PERMISSION_DENIED
@@ -68,31 +92,23 @@ export default class Index extends RootVue {
             this.$dialog.alert('この端末では位置情報が取得できません');
         }
     }
-    protected async initMapComponent(): Promise<void> {
-        try {
-            // if (this.currentPosition == null) {
-            //     throw new CommonError('位置情報が取れないためマップを表示できません');
-            // }
-            const canvas = (this.$refs['map'] as HTMLElement);
-            // const latlng = new google.maps.LatLng(this.currentPosition.coords.latitude, this.currentPosition.coords.longitude);
-            const latlng = new google.maps.LatLng(38, 140);
-            const mapOptions: google.maps.MapOptions = {
-                zoom: 13,
-                center: {
-                    lat: latlng.lat(),
-                    lng: latlng.lng()
-                }
+    protected initMapComponent(currentLatLng: Position) {
+        const canvas = (this.$refs['map'] as HTMLElement);
+        const latlng = new google.maps.LatLng(currentLatLng.coords.latitude, currentLatLng.coords.longitude);
+        const mapOptions: google.maps.MapOptions = {
+            zoom: 13,
+            center: {
+                lat: latlng.lat(),
+                lng: latlng.lng()
             }
-            this.map = new google.maps.Map(canvas, mapOptions);
-            this.map.addListener('click', e => {
-                console.log(e.latLng.lat(), e.latLng.lng());
-                this.setMarker(e.latLng);
-                this.getData();
-                // this.storeData('macbook', 'my partner', { lat: e.latLng.lat(), lng: e.latLng.lng() }, ['laptop', 'computer']);
-            });
-        } catch (e) {
-            this.$dialog.alert(e.message);
         }
+        this.map = new google.maps.Map(canvas, mapOptions);
+        this.map.addListener('click', e => {
+            this.pinPosition = { lat: e.latLng.lat(), lng: e.latLng.lng() };
+            this.setMarker(e.latLng);
+            this.modalItem.pinPosition = { lat: e.latLng.lat(), lng: e.latLng.lng() };
+            this.isButtonActive = true;
+        });
     }
 
     protected setMarker(latlng: google.maps.LatLng) {
@@ -105,33 +121,14 @@ export default class Index extends RootVue {
         });
     }
 
-    protected mounted(): void {
-        this.executeLoading( async () => {
-            // await this.getCurrentPosition();
-            await this.initMapComponent();
-        });
-    }
-    protected getData() {
-        const dataRef = db.collection('items').doc('ML4sQ7Nr2TYpI5KnUgTB');
-        dataRef.get().then(doc => {
-            if (doc.exists) {
-                console.log("Document data:", doc.data());
-            } else {
-                console.log("No such document!");
-            }
-        }).catch(error => {
-            console.log("Error getting document:", error);
-        });
+    protected openModal() {
+        this.modalItem.message = '';
+        this.modalItem.tags = [];
+        this.isComponentModalActive = !this.isComponentModalActive;
     }
 
-    protected storeData(name: string, message: string, location: {lat: number,lng: number} , tags: string[]) {
-        const dataRef = db.collection('items').doc();
-        dataRef.set({
-            name,
-            msg: message,
-            location,
-            tags
-        });
+    protected mounted(): void {
+        this.getCurrentPosition();
     }
 }
 </script>
@@ -139,12 +136,17 @@ export default class Index extends RootVue {
 <style lang='sass'>
 @import 'entry/all'
 
+$hero-height-medium: 8rem
 .vue-index
-    section.main
-        max-width: 800px
-        margin-left: auto
-        margin-right: auto
+    .medium
+        height: $hero-height-medium
 
-        .map
-            height: 100vh
+    .map, .manager
+        height: calc(100vh - #{$hero-height-medium})
+
+    .spread-out
+        justify-content: space-evenly
+
+    .tooltip
+        display: flex
 </style>
