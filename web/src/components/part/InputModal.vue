@@ -1,17 +1,19 @@
 <template lang='pug'>
 .vue-input-modal
-    .modal-card
-        header.modal-card-head
-            p.modal-card-title 入力画面
-        section.modal-card-body
-            b-field(label='タグ')
-                b-taginput(v-model='modalItem.tags' :data='labels' field='ja' autocomplete icon='label' placeholder='Add a tag' @typing='getFilteredTags')
-            b-field(label='メッセージ')
-                b-input(type='textarea' v-model='modalItem.message' maxlength='100')
-        footer.arai-modal-card-foot
-            button.button(type='button' @click='$parent.close()') close
-            button.button.is-primary(@click='store') post
-    button.modal-close.is-large(aria-label='close')
+    .modal(:class='{ "is-active": isActive }')
+        .modal-background
+        .modal-card
+            header.modal-card-head
+                p.modal-card-title 入力画面
+            section.modal-card-body
+                b-field(label='タグ')
+                    b-taginput(v-model='modalItem.tags' :data='labels' field='ja' autocomplete icon='label' placeholder='Add a tag' @typing='getFilteredTags')
+                b-field(label='メッセージ')
+                    b-input(type='textarea' v-model='modalItem.message' maxlength='100')
+            footer.arai-modal-card-foot
+                button.button(type='button' @click='closeModal') close
+                button.button.is-primary(@click='store') post
+        button.modal-close.is-large(aria-label='close' @click='closeModal')
 </template>
 
 <script lang='ts'>
@@ -78,6 +80,7 @@ export default class InputModal extends Vue {
     protected store() {
         const selectedLabel = this.modalItem.tags.map(item => item.en);
         this.storeData('hoge', this.modalItem.message, this.modalItem.pinPosition, selectedLabel);
+        this.closeModal();
     }
 
     protected storeData(name: string, message: string, location: {lat: number,lng: number} , tags: string[]) {
@@ -92,7 +95,6 @@ export default class InputModal extends Vue {
                 location,
                 tags
             });
-
         } catch (e) {
             if (e instanceof CommonError) {
                 this.$dialog.alert({ message: e.message });

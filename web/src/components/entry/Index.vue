@@ -16,11 +16,10 @@
                     p.subtitle {{ (pinPosition != null) ? pinPosition.lng : 'null' }}
                     hr
                 b-tooltip.is-danger(label='まずはマップにピンをセットしよう' position='is-top' size='is-large' multilined=true :active='isButtonActive == false')
-                    button.button.is-large.is-success.is-fullwidth(:disabled='isButtonActive == false' @click='isComponentModalActive = !isComponentModalActive')
+                    button.button.is-large.is-success.is-fullwidth(:disabled='isButtonActive == false' @click='openModal')
                         b-icon(icon='pen')
                         span メッセージ入力
-    b-modal(:active.sync='isComponentModalActive')
-        input-modal(:modalItem.sync='modalItem')
+    input-modal(:modalItem.sync='modalItem' :isActive.sync='isComponentModalActive')
 </template>
 
 <script lang='ts'>
@@ -69,12 +68,10 @@ export default class Index extends RootVue {
         pinPosition: {lat: 0, lng: 0}
     }
 
-    protected async getCurrentPosition(): Promise<void> {
+    protected getCurrentPosition() {
         if (navigator.geolocation) {
-            await navigator.geolocation.getCurrentPosition(position => {
-                const currentLatLng = { lat: position.coords.latitude, lng: position.coords.longitude };
-                this.currentPosition = currentLatLng;
-                this.initMapComponent();
+            navigator.geolocation.getCurrentPosition(position => {
+                this.initMapComponent(position);
             }, error => {
                 switch(error.code) {
                     case 1: //PERMISSION_DENIED
@@ -95,31 +92,23 @@ export default class Index extends RootVue {
             this.$dialog.alert('この端末では位置情報が取得できません');
         }
     }
-    protected async initMapComponent(): Promise<void> {
-        try {
-            if (this.currentPosition == null) {
-                throw new CommonError('位置情報が取れないためマップを表示できません');
+    protected initMapComponent(currentLatLng: Position) {
+        const canvas = (this.$refs['map'] as HTMLElement);
+        const latlng = new google.maps.LatLng(currentLatLng.coords.latitude, currentLatLng.coords.longitude);
+        const mapOptions: google.maps.MapOptions = {
+            zoom: 13,
+            center: {
+                lat: latlng.lat(),
+                lng: latlng.lng()
             }
-            const canvas = (this.$refs['map'] as HTMLElement);
-            const latlng = new google.maps.LatLng(this.currentPosition.lat, this.currentPosition.lng);
-            // const latlng = new google.maps.LatLng(38, 140);
-            const mapOptions: google.maps.MapOptions = {
-                zoom: 13,
-                center: {
-                    lat: latlng.lat(),
-                    lng: latlng.lng()
-                }
-            }
-            this.map = new google.maps.Map(canvas, mapOptions);
-            this.map.addListener('click', e => {
-                this.pinPosition = { lat: e.latLng.lat(), lng: e.latLng.lng() };
-                this.setMarker(e.latLng);
-                this.modalItem.pinPosition = { lat: e.latLng.lat(), lng: e.latLng.lng() };
-                this.isButtonActive = true;
-            });
-        } catch (e) {
-            this.$dialog.alert(e.message);
         }
+        this.map = new google.maps.Map(canvas, mapOptions);
+        this.map.addListener('click', e => {
+            this.pinPosition = { lat: e.latLng.lat(), lng: e.latLng.lng() };
+            this.setMarker(e.latLng);
+            this.modalItem.pinPosition = { lat: e.latLng.lat(), lng: e.latLng.lng() };
+            this.isButtonActive = true;
+        });
     }
 
     protected setMarker(latlng: google.maps.LatLng) {
@@ -130,6 +119,12 @@ export default class Index extends RootVue {
             map: this.map as google.maps.Map,
             position: latlng
         });
+    }
+
+    protected openModal() {
+        this.modalItem.message = '';
+        this.modalItem.tags = [];
+        this.isComponentModalActive = !this.isComponentModalActive;
     }
 
     protected mounted(): void {

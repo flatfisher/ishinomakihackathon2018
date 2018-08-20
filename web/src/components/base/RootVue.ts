@@ -1,7 +1,6 @@
 import { Vue } from 'vue-property-decorator';
 import { aswait } from '@/scripts/util/AsyncTimeout';
 
-// TODO: vue-property-decoratorへ以降
 export default abstract class RootVue extends Vue {
     public abstract title: string;
     public abstract subtitle: string;
